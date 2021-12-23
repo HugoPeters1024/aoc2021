@@ -1,0 +1,13 @@
+use std::io::BufRead;
+use sscanf::scanf;
+
+type Step = ((i32, i32), (i32, i32), i32, i32);
+
+fn main() {
+    let steps: Vec<Step> = std::io::stdin().lock().lines().flatten.map;
+    println!("Hello, world!");
+}
+
+fn pasre_step(inp: &String) -> Step {
+    todo!()
+}
