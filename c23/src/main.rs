@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use priority_queue::PriorityQueue;
+use std::cmp::min;
 
-// N is for none
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(Debug)]
@@ -62,47 +62,47 @@ fn main() {
     let state =  parse();
 
     let mut discovery: PriorityQueue<State, i64> = PriorityQueue::new();
-    let mut visited: HashSet<State> = HashSet::new();
+    let mut visited: HashMap<[Amphi;8], i64> = HashMap::new();
 
     discovery.push(state, 0);
+    let mut best: i64 = 100000000000;
     while let Some((state, _)) = discovery.pop() {
         for state in succs(&state) {
-            if visited.contains(&state) {
-                continue;
+            if let Some(e) = visited.get(&state.amphis) {
+                // Beter solution already known, continue
+                if *e <= state.energy_spent { continue; }
             }
-            visited.insert(state);
+            *visited.entry(state.amphis).or_insert(0) = state.energy_spent;
 
-            //for i in 0..4 {
-            //    if state.nr_moves[i] > 30 { continue 'outer; }
-            //}
-
-            let nr_correct: i64 = count_correct(&state.amphis) as i64;
-
-            if nr_correct == 8 {
+            if is_correct(&state.amphis) {
                 println!("Solution:");
                 println!("{}", state);
-                return;
+                best = min(best, state.energy_spent);
             }
 
             discovery.push(state, -state.energy_spent);
         }
     }
+
+    println!("best solution: {}", best);
 }
 
-fn count_correct(s: &[Amphi;8]) -> i32 {
-    let mut ret = 0;
+fn is_correct(s: &[Amphi;8]) -> bool {
     for (k, x, y) in s.into_iter() {
-        let x = *x;
-        let y = *y;
-        match k {
-            AmphiKind::A() => { if x == 2 && (y == 1 || y == 2) { ret+=1 }}
-            AmphiKind::B() => { if x == 4 && (y == 1 || y == 2) { ret+=1 }}
-            AmphiKind::C() => { if x == 6 && (y == 1 || y == 2) { ret+=1 }}
-            AmphiKind::D() => { if x == 8 && (y == 1 || y == 2) { ret+=1 }}
+        match (x,y) {
+            (2,1) => if *k != AmphiKind::A() { return false; },
+            (2,2) => if *k != AmphiKind::A() { return false; },
+            (4,1) => if *k != AmphiKind::B() { return false; },
+            (4,2) => if *k != AmphiKind::B() { return false; },
+            (6,1) => if *k != AmphiKind::C() { return false; },
+            (6,2) => if *k != AmphiKind::C() { return false; },
+            (8,1) => if *k != AmphiKind::D() { return false; },
+            (8,2) => if *k != AmphiKind::D() { return false; },
+            _ => { return false },
         }
 
     }
-    ret
+    true
 }
 
 fn valid_end(s: &State, k: AmphiKind, x: i32, y: i32) -> bool {
