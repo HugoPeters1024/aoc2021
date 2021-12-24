@@ -23,7 +23,7 @@ type Amphi = (AmphiKind, i32, i32);
 #[derive(Hash)]
 struct State {
     energy_spent: i64,
-    amphis: [Amphi; 8],
+    amphis: [Amphi; 16],
 }
 
 impl State {
@@ -44,7 +44,7 @@ impl State {
 impl Display for State {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let dict = self.get_dict();
-        for y in 0..3 {
+        for y in 0..5 {
             for x in 0..11 {
                 if let Some(k) = dict.get(&(x,y)) {
                     write!(f, "{}", kind_to_char(k)).unwrap();
@@ -54,15 +54,16 @@ impl Display for State {
             }
             writeln!(f).unwrap();
         }
+        writeln!(f, "{:?}", self).unwrap();
         writeln!(f, "Energy spent: {}", self.energy_spent)
     }
 }
 
 fn main() {
-    let state =  parse();
+    let state = parse();
 
     let mut discovery: PriorityQueue<State, i64> = PriorityQueue::new();
-    let mut visited: HashMap<[Amphi;8], i64> = HashMap::new();
+    let mut visited: HashMap<[Amphi;16], i64> = HashMap::new();
 
     discovery.push(state, 0);
     let mut best: i64 = 100000000000;
@@ -74,6 +75,8 @@ fn main() {
             }
             *visited.entry(state.amphis).or_insert(0) = state.energy_spent;
 
+            println!("{}", state.energy_spent);
+
             if is_correct(&state.amphis) {
                 println!("Solution:");
                 println!("{}", state);
@@ -83,21 +86,39 @@ fn main() {
             discovery.push(state, -state.energy_spent);
         }
     }
+   
+    //state.amphis[12] = (AmphiKind::D(), 10, 0);
+    //state.amphis[13] = (AmphiKind::D(), 9, 0);
+    //state.amphis[12] = (AmphiKind::D(), 7, 0);
+    //for s in succs(&state) {
+    //    println!("{}", s);
+    //}
 
     println!("best solution: {}", best);
 }
 
-fn is_correct(s: &[Amphi;8]) -> bool {
+fn is_correct(s: &[Amphi;16]) -> bool {
     for (k, x, y) in s.into_iter() {
         match (x,y) {
             (2,1) => if *k != AmphiKind::A() { return false; },
             (2,2) => if *k != AmphiKind::A() { return false; },
+            (2,3) => if *k != AmphiKind::A() { return false; },
+            (2,4) => if *k != AmphiKind::A() { return false; },
+
             (4,1) => if *k != AmphiKind::B() { return false; },
             (4,2) => if *k != AmphiKind::B() { return false; },
+            (4,3) => if *k != AmphiKind::B() { return false; },
+            (4,4) => if *k != AmphiKind::B() { return false; },
+
             (6,1) => if *k != AmphiKind::C() { return false; },
             (6,2) => if *k != AmphiKind::C() { return false; },
+            (6,3) => if *k != AmphiKind::C() { return false; },
+            (6,4) => if *k != AmphiKind::C() { return false; },
+
             (8,1) => if *k != AmphiKind::D() { return false; },
             (8,2) => if *k != AmphiKind::D() { return false; },
+            (8,3) => if *k != AmphiKind::D() { return false; },
+            (8,4) => if *k != AmphiKind::D() { return false; },
             _ => { return false },
         }
 
@@ -106,24 +127,26 @@ fn is_correct(s: &[Amphi;8]) -> bool {
 }
 
 fn valid_end(s: &State, k: AmphiKind, x: i32, y: i32) -> bool {
-    let (rx1, ry1, rx2, ry2) = match k {
-        AmphiKind::A() => (2,1,2,2),
-        AmphiKind::B() => (4,1,4,2),
-        AmphiKind::C() => (6,1,6,2),
-        AmphiKind::D() => (8,1,8,2),
+    let rx = match k {
+        AmphiKind::A() => 2,
+        AmphiKind::B() => 4,
+        AmphiKind::C() => 6,
+        AmphiKind::D() => 8,
     };
 
-    if x == rx2 && y == ry2 {
-        true
-    } else if x == rx1 && y == ry1 {
-        if let Some(ko) = s.get_dict().get(&(x,2)) {
-            k == *ko
+
+    let dict = s.get_dict();
+
+    let mut valid = x == rx;
+    for y in y+1..5 {
+        if let Some(ko) = dict.get(&(rx,y)) {
+            valid &= k == *ko
         } else {
-            false
+            valid = false;
         }
-    } else {
-        false
     }
+
+    valid
 }
 
 
@@ -135,7 +158,7 @@ fn succs(s: &State) -> Vec<State> {
         // Accept only going to a room or going to the hallway
         let accept = if y > 0 {
             // you started in a room, just don't got anywhere forbidden
-            |s: &State, k: AmphiKind, x: i32, y: i32| valid_end(s, k, x, y) || (x != 2 && x != 4 && x!=6 && x!=8)
+            |s: &State, k: AmphiKind, x: i32, y: i32| (y == 0 && x != 2 && x != 4 && x!=6 && x!=8) || valid_end(s, k, x, y) 
         } else {
             // you started in the hallway, move to your room
             |s: &State, k: AmphiKind, x: i32, y: i32| valid_end(s, k, x, y)
@@ -148,12 +171,15 @@ fn succs(s: &State) -> Vec<State> {
         let mut visisted: HashSet<(i32, i32)> = HashSet::new();
 
         discovery.push_back(s.clone());
+        visisted.insert((x,y));
 
         while let Some(s) = discovery.pop_front() {
             let (k,x,y) = s.amphis[i];
-            if visisted.contains(&(x,y)) { continue; }
-            visisted.insert((x,y));
             for (x,y) in coord_succs(x, y) {
+                if visisted.contains(&(x,y)) {
+                    continue;
+                }
+                visisted.insert((x,y));
                 // Check if it is free
                 if s.is_free(x,y) {
                     let mut ns = s.clone();
@@ -179,10 +205,10 @@ fn coord_succs(x: i32, y: i32) -> Vec<(i32, i32)> {
         ret.push((x, y-1));
     } else {
         if x > 0 { ret.push((x-1, 0)) }
-        if x < 12 { ret.push((x+1, 0)) }
+        if x < 10 { ret.push((x+1, 0)) }
     }
 
-    if [2,4,6,8].contains(&x) && y < 2 {
+    if [2,4,6,8].contains(&x) && y < 4 {
         ret.push((x,y+1));
     }
     ret
@@ -204,22 +230,34 @@ fn parse() -> State {
     let lines: Vec<String> = std::io::stdin().lock().lines().flatten().collect();
     let (a1,b1,c1,d1) = scanf!(lines[2], "###{}#{}#{}#{}###", char, char, char, char).unwrap();
     let (a2,b2,c2,d2) = scanf!(lines[3], "  #{}#{}#{}#{}#", char, char, char, char).unwrap();
+    let (a3,b3,c3,d3) = scanf!(lines[4], "  #{}#{}#{}#{}#", char, char, char, char).unwrap();
+    let (a4,b4,c4,d4) = scanf!(lines[5], "  #{}#{}#{}#{}#", char, char, char, char).unwrap();
 
     let amphis = [
         (char_to_kind(a1), 2,1),
         (char_to_kind(a2), 2,2),
+        (char_to_kind(a3), 2,3),
+        (char_to_kind(a4), 2,4),
+
         (char_to_kind(b1), 4,1),
         (char_to_kind(b2), 4,2),
+        (char_to_kind(b3), 4,3),
+        (char_to_kind(b4), 4,4),
+
         (char_to_kind(c1), 6,1),
         (char_to_kind(c2), 6,2),
+        (char_to_kind(c3), 6,3),
+        (char_to_kind(c4), 6,4),
+
         (char_to_kind(d1), 8,1),
         (char_to_kind(d2), 8,2),
+        (char_to_kind(d3), 8,3),
+        (char_to_kind(d4), 8,4),
     ];
 
     State {
         energy_spent: 0,
         amphis,
-//        nr_moves: [0; 4],
     }
 }
 
